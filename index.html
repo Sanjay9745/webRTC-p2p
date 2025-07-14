@@ -6,16 +6,17 @@
     <title>WebRTC Video Chat</title>
     <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bootstrap CSS for modal and buttons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* Custom styles for a better look and feel */
         body {
             font-family: 'Inter', sans-serif;
         }
         .video-container {
             position: relative;
             width: 100%;
-            padding-top: 56.25%; /* 16:9 Aspect Ratio */
-            background-color: #1a202c; /* dark gray */
+            padding-top: 56.25%;
+            background-color: #1a202c;
         }
         video {
             position: absolute;
@@ -24,7 +25,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror effect */
+            transform: scaleX(-1);
         }
         #localVideo {
             width: 25%;
@@ -32,7 +33,7 @@
             position: absolute;
             bottom: 1rem;
             right: 1rem;
-            border: 2px solid #4a5568; /* gray */
+            border: 2px solid #4a5568;
             z-index: 10;
         }
         .control-button {
@@ -40,10 +41,35 @@
         }
         .control-button:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         #chat-messages {
             scroll-behavior: smooth;
+        }
+        .fullscreen-controls {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            gap: 1rem;
+        }
+        .fullscreen-chat-btn {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            z-index: 30;
+        }
+        .modal-content {
+            background-color: #23272f;
+            color: #fff;
+        }
+        .modal-header {
+            border-bottom: 1px solid #444;
+        }
+        .modal-footer {
+            border-top: 1px solid #444;
         }
     </style>
     <!-- Google Fonts for a nicer typography -->
@@ -60,42 +86,55 @@
             <h1 class="text-4xl font-bold mb-6">WebRTC Video Chat</h1>
             <p class="text-gray-400 mb-8">Create a room and share the code, or join a room with a code.</p>
             <div class="flex flex-col md:flex-row items-center justify-center gap-4">
-                <button id="createRoomBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg w-full md:w-auto control-button">Create Room</button>
+                <button id="createRoomBtn" class="btn btn-primary font-bold py-3 px-6 rounded-lg w-full md:w-auto control-button">Create Room</button>
                 <div class="flex items-center w-full md:w-auto">
-                    <input type="text" id="joinCodeInput" placeholder="Enter Join Code" class="bg-gray-700 text-white border-2 border-gray-600 rounded-l-lg p-3 w-full focus:outline-none focus:border-indigo-500">
-                    <button id="joinRoomBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-r-lg control-button">Join Room</button>
+                    <input type="text" id="joinCodeInput" placeholder="Enter Join Code" class="form-control bg-gray-700 text-white border-2 border-gray-600 rounded-l-lg p-3 w-full focus:outline-none focus:border-indigo-500">
+                    <button id="joinRoomBtn" class="btn btn-success font-bold py-3 px-6 rounded-r-lg control-button">Join Room</button>
                 </div>
             </div>
-            <div id="errorMessage" class="text-red-400 mt-4 h-6"></div>
+            <div id="errorMessage" class="text-danger mt-4 h-6"></div>
         </div>
 
         <!-- Video Call Screen -->
         <div id="callScreen" class="hidden">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <!-- Video Area -->
-                <div class="lg:col-span-2 bg-gray-800 p-4 rounded-lg shadow-xl">
-                    <div class="video-container rounded-lg overflow-hidden">
+                <div class="lg:col-span-2 bg-gray-800 p-4 rounded-lg shadow-xl position-relative">
+                    <div class="video-container rounded-lg overflow-hidden" id="mainVideoContainer">
                         <video id="remoteVideo" autoplay playsinline></video>
                         <video id="localVideo" autoplay playsinline muted></video>
+                        <!-- Fullscreen controls (hidden by default, shown in fullscreen) -->
+                        <div id="fullscreenControls" class="fullscreen-controls d-none">
+                            <button id="fsMuteMicBtn" class="btn btn-secondary control-button" title="Mute/Unmute Mic">
+                                <span id="fsMuteMicIcon">&#128264;</span>
+                                <span id="fsUnmuteMicIcon" class="d-none">&#128266;</span>
+                            </button>
+                            <button id="fsMuteCamBtn" class="btn btn-secondary control-button" title="Mute/Unmute Camera">
+                                <span id="fsMuteCamIcon">&#128247;</span>
+                                <span id="fsUnmuteCamIcon" class="d-none">&#128249;</span>
+                            </button>
+                            <button id="fsExitBtn" class="btn btn-danger control-button" title="Exit Fullscreen">&#10006;</button>
+                        </div>
+                        <button id="fullscreenChatBtn" class="btn btn-info fullscreen-chat-btn d-none" title="Open Chat">Chat</button>
                     </div>
                     <div class="flex justify-center items-center mt-4 space-x-4">
-                        <button id="muteBtn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold p-3 rounded-full control-button">
-                            <!-- SVG icon for Mute -->
-                            <svg id="muteIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                            <!-- SVG icon for Unmute -->
-                            <svg id="unmuteIcon" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                        <button id="muteMicBtn" class="btn btn-secondary control-button" title="Mute/Unmute Mic">
+                            <span id="muteMicIcon">&#128264;</span>
+                            <span id="unmuteMicIcon" class="d-none">&#128266;</span>
                         </button>
-                        <button id="fullscreenBtn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold p-3 rounded-full control-button" title="Fullscreen">
-                            <!-- SVG icon for Fullscreen -->
+                        <button id="muteCamBtn" class="btn btn-secondary control-button" title="Mute/Unmute Camera">
+                            <span id="muteCamIcon">&#128247;</span>
+                            <span id="unmuteCamIcon" class="d-none">&#128249;</span>
+                        </button>
+                        <button id="fullscreenBtn" class="btn btn-dark control-button" title="Fullscreen">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h6M4 4v6M4 4l6 6M20 20h-6M20 20v-6M20 20l-6-6"></path></svg>
                         </button>
-                        <button id="copyUrlBtn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold p-3 rounded-full control-button" title="Copy URL">
-                            <!-- SVG icon for Link/Share -->
+                        <button id="copyUrlBtn" class="btn btn-info control-button" title="Copy URL">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14L21 3m0 0v7m0-7h-7"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21H3V3"></path></svg>
                         </button>
-                        <button id="endCallBtn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg control-button">End Call</button>
+                        <button id="endCallBtn" class="btn btn-danger font-bold py-3 px-6 rounded-lg control-button">End Call</button>
                     </div>
-                     <div class="text-center mt-4">
+                    <div class="text-center mt-4">
                         <p class="text-gray-400">Room Code: <span id="roomCodeDisplay" class="font-mono bg-gray-700 p-1 rounded"></span></p>
                     </div>
                 </div>
@@ -107,14 +146,35 @@
                         <!-- Chat messages will be appended here -->
                     </div>
                     <form id="chat-form" class="flex items-center">
-                        <input type="text" id="chat-input" placeholder="Type a message..." class="bg-gray-700 text-white border-2 border-gray-600 rounded-l-lg p-3 w-full focus:outline-none focus:border-indigo-500">
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-r-lg control-button">Send</button>
+                        <input type="text" id="chat-input" placeholder="Type a message..." class="form-control bg-gray-700 text-white border-2 border-gray-600 rounded-l-lg p-3 w-full focus:outline-none focus:border-indigo-500">
+                        <button type="submit" class="btn btn-primary font-bold py-3 px-4 rounded-r-lg control-button">Send</button>
                     </form>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Chat Modal for Fullscreen -->
+    <div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="chatModalLabel">Chat</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="chat-messages-modal" class="mb-3" style="max-height:300px;overflow-y:auto;"></div>
+            <form id="chat-form-modal" class="d-flex">
+                <input type="text" id="chat-input-modal" class="form-control me-2" placeholder="Type a message...">
+                <button type="submit" class="btn btn-primary">Send</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS for modal -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // DOM Elements
         const entryScreen = document.getElementById('entryScreen');
@@ -126,14 +186,28 @@
         
         const localVideo = document.getElementById('localVideo');
         const remoteVideo = document.getElementById('remoteVideo');
-        const muteBtn = document.getElementById('muteBtn');
-        const muteIcon = document.getElementById('muteIcon');
-        const unmuteIcon = document.getElementById('unmuteIcon');
+        const muteMicBtn = document.getElementById('muteMicBtn');
+        const muteCamBtn = document.getElementById('muteCamBtn');
+        const muteMicIcon = document.getElementById('muteMicIcon');
+        const unmuteMicIcon = document.getElementById('unmuteMicIcon');
+        const muteCamIcon = document.getElementById('muteCamIcon');
+        const unmuteCamIcon = document.getElementById('unmuteCamIcon');
         const endCallBtn = document.getElementById('endCallBtn');
         const roomCodeDisplay = document.getElementById('roomCodeDisplay');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
-        const copyUrlBtn = document.getElementById('copyUrlBtn');
-
+        const fullscreenControls = document.getElementById('fullscreenControls');
+        const fsMuteMicBtn = document.getElementById('fsMuteMicBtn');
+        const fsMuteCamBtn = document.getElementById('fsMuteCamBtn');
+        const fsMuteMicIcon = document.getElementById('fsMuteMicIcon');
+        const fsUnmuteMicIcon = document.getElementById('fsUnmuteMicIcon');
+        const fsMuteCamIcon = document.getElementById('fsMuteCamIcon');
+        const fsUnmuteCamIcon = document.getElementById('fsUnmuteCamIcon');
+        const fsExitBtn = document.getElementById('fsExitBtn');
+        const fullscreenChatBtn = document.getElementById('fullscreenChatBtn');
+        const chatModal = new bootstrap.Modal(document.getElementById('chatModal'));
+        const chatMessagesModal = document.getElementById('chat-messages-modal');
+        const chatFormModal = document.getElementById('chat-form-modal');
+        const chatInputModal = document.getElementById('chat-input-modal');
         const chatForm = document.getElementById('chat-form');
         const chatInput = document.getElementById('chat-input');
         const chatMessages = document.getElementById('chat-messages');
@@ -145,7 +219,8 @@
         let remoteStream;
         let dataChannel;
         let currentJoinCode = null;
-        let isMuted = false;
+        let isMicMuted = false;
+        let isCamMuted = false;
 
         // STUN servers for NAT traversal
         const stunServers = {
@@ -157,7 +232,6 @@
 
         // Initialize WebSocket connection
         function initWebSocket() {
-            // Use wss:// for secure connections (like on Glitch or Heroku)
             const wsUrl =
                 window.location.protocol === 'https:' ? 'wss://' + window.location.host :
                 window.location.protocol === 'http:' ? 'ws://' + window.location.host :
@@ -317,37 +391,97 @@
             }
         };
 
+        chatFormModal.onsubmit = (e) => {
+            e.preventDefault();
+            const message = chatInputModal.value.trim();
+            if (message && dataChannel && dataChannel.readyState === 'open') {
+                const messageData = { sender: 'You', text: message };
+                dataChannel.send(JSON.stringify(messageData));
+                appendChatMessage(messageData, 'local');
+                chatInputModal.value = '';
+                chatMessagesModal.appendChild(createChatMsgElement(messageData, 'local'));
+                chatMessagesModal.scrollTop = chatMessagesModal.scrollHeight;
+            }
+        };
+
         function appendChatMessage(data, type) {
+            const messageElement = createChatMsgElement(data, type);
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function createChatMsgElement(data, type) {
             const messageElement = document.createElement('div');
             messageElement.classList.add('p-3', 'rounded-lg', 'max-w-xs');
-            
             if (type === 'local') {
-                messageElement.classList.add('bg-indigo-600', 'self-end', 'ml-auto');
-                messageElement.innerHTML = `<p class="text-white">${data.text}</p>`;
+                messageElement.classList.add('bg-primary', 'text-white', 'self-end', 'ml-auto');
             } else {
-                messageElement.classList.add('bg-gray-600', 'self-start', 'mr-auto');
-                messageElement.innerHTML = `<p class="text-white">${data.text}</p>`;
+                messageElement.classList.add('bg-secondary', 'text-white', 'self-start', 'mr-auto');
             }
-            chatMessages.appendChild(messageElement);
-            chatMessages.scrollTop = chatMessages.scrollHeight; // Auto-scroll
+            messageElement.innerHTML = `<p>${data.text}</p>`;
+            return messageElement;
         }
 
         // Control button handlers
-        muteBtn.onclick = () => {
-            isMuted = !isMuted;
-            localStream.getAudioTracks()[0].enabled = !isMuted;
-            muteIcon.classList.toggle('hidden', isMuted);
-            unmuteIcon.classList.toggle('hidden', !isMuted);
-            muteBtn.classList.toggle('bg-indigo-600', isMuted);
-        };
+        function setMicMuted(muted) {
+            isMicMuted = muted;
+            if (localStream) {
+                localStream.getAudioTracks().forEach(track => track.enabled = !muted);
+            }
+            muteMicIcon.classList.toggle('d-none', muted);
+            unmuteMicIcon.classList.toggle('d-none', !muted);
+            fsMuteMicIcon.classList.toggle('d-none', muted);
+            fsUnmuteMicIcon.classList.toggle('d-none', !muted);
+        }
+        muteMicBtn.onclick = () => setMicMuted(!isMicMuted);
+        fsMuteMicBtn.onclick = () => setMicMuted(!isMicMuted);
+
+        function setCamMuted(muted) {
+            isCamMuted = muted;
+            if (localStream) {
+                localStream.getVideoTracks().forEach(track => track.enabled = !muted);
+            }
+            muteCamIcon.classList.toggle('d-none', muted);
+            unmuteCamIcon.classList.toggle('d-none', !muted);
+            fsMuteCamIcon.classList.toggle('d-none', muted);
+            fsUnmuteCamIcon.classList.toggle('d-none', !muted);
+        }
+        muteCamBtn.onclick = () => setCamMuted(!isCamMuted);
+        fsMuteCamBtn.onclick = () => setCamMuted(!isCamMuted);
 
         fullscreenBtn.onclick = () => {
-            const videoContainer = document.querySelector('.video-container');
-            if (document.fullscreenElement) {
-                document.exitFullscreen();
-            } else {
+            const videoContainer = document.getElementById('mainVideoContainer');
+            if (videoContainer.requestFullscreen) {
                 videoContainer.requestFullscreen();
+            } else if (videoContainer.webkitRequestFullscreen) {
+                videoContainer.webkitRequestFullscreen();
+            } else if (videoContainer.msRequestFullscreen) {
+                videoContainer.msRequestFullscreen();
             }
+        };
+
+        fsExitBtn.onclick = () => {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+        };
+
+        document.addEventListener('fullscreenchange', () => {
+            const isFs = !!document.fullscreenElement;
+            fullscreenControls.classList.toggle('d-none', !isFs);
+            fullscreenChatBtn.classList.toggle('d-none', !isFs);
+        });
+
+        fullscreenChatBtn.onclick = () => {
+            chatMessagesModal.innerHTML = '';
+            document.querySelectorAll('#chat-messages > div').forEach(msg => {
+                chatMessagesModal.appendChild(msg.cloneNode(true));
+            });
+            chatModal.show();
         };
 
         copyUrlBtn.onclick = () => {
@@ -359,10 +493,9 @@
 
         endCallBtn.onclick = () => {
             resetCall();
-            window.location.reload(); // Simple way to reset state
+            window.location.reload();
         };
-        
-        // Utility functions
+
         function generateJoinCode() {
             return Math.random().toString(36).substring(2, 8).toUpperCase();
         }
@@ -393,13 +526,11 @@
             callScreen.classList.add('hidden');
         }
 
-        // Auto-join if URL contains room code
         window.addEventListener('DOMContentLoaded', async () => {
             const match = /^\/([a-zA-Z0-9]{6})$/.exec(window.location.pathname);
             if (match) {
                 const joinCode = match[1].toUpperCase();
                 joinCodeInput.value = joinCode;
-                // Wait for WebSocket to be ready
                 const waitWs = () => new Promise(resolve => {
                     if (ws && ws.readyState === WebSocket.OPEN) return resolve();
                     ws.addEventListener('open', resolve, { once: true });
@@ -409,7 +540,6 @@
             }
         });
 
-        // Initialize the application
         initWebSocket();
     </script>
 </body>
